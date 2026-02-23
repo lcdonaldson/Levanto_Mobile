@@ -1,29 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, Linking, Platform, Dimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Type, Card, Button, spacing } from '../design-system';
 import { useAuthStore } from '../store/authStore';
+import { useProgressStore } from '../store/progressStore';
 import type { DashboardScreenProps } from '../navigation/types';
 import { mockPrograms } from '../data/mockData';
 import { ProgramIcon } from '../components/ProgramIcon';
-import { ListChecks, Flame, PieChart, UserCircle, LogOut, BarChart3, Shield } from 'lucide-react-native';
+import { ActivityLogModal } from '../components/ActivityLogModal';
+import { JoinProgramModal } from '../components/JoinProgramModal';
+import { ListChecks, Flame, PieChart, UserCircle, LogOut, BarChart3, Shield, RotateCcw } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 140;
 
-// Mock user's enrolled programs (first 2) and available programs (rest)
-const enrolledProgramIds = ['1', '2'];
-const myProgress = {
-  '1': { completedDays: 15, totalDays: 30, lastActivity: 'Logged 8,000 steps' },
-  '2': { completedDays: 8, totalDays: 30, lastActivity: 'Completed meditation session' },
-};
-
 export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
   const user = useAuthStore((s) => s.user);
-  // Extract first name from email for privacy
   const displayName = user?.includes('@') ? 'User' : user;
   const logout = useAuthStore((s) => s.logout);
+  
+  // Progress store
+  const enrolledProgramIds = useProgressStore((s) => s.enrolledProgramIds);
+  const programProgress = useProgressStore((s) => s.programProgress);
+  const currentStreak = useProgressStore((s) => s.currentStreak);
+  const calculateCompletionRate = useProgressStore((s) => s.calculateCompletionRate);
+  const isLoggedToday = useProgressStore((s) => s.isLoggedToday);
+  
+  // Modal state
   const [showMenu, setShowMenu] = useState(false);
+  const [activityLogProgram, setActivityLogProgram] = useState<typeof mockPrograms[0] | null>(null);
+  const [joinProgramTarget, setJoinProgramTarget] = useState<typeof mockPrograms[0] | null>(null);
 
   const enrolledPrograms = mockPrograms.filter((p) =>
     enrolledProgramIds.includes(p.id)
@@ -31,6 +37,8 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
   const availablePrograms = mockPrograms.filter(
     (p) => !enrolledProgramIds.includes(p.id)
   );
+  
+  const completionRate = calculateCompletionRate();
 
   const handleProgramPress = (programId: string) => {
     navigation.navigate('ProgramDetail', { programId });
@@ -47,6 +55,12 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
   const handleCompliance = () => {
     setShowMenu(false);
     navigation.navigate('Compliance');
+  };
+
+  const handleReset = async () => {
+    const reset = useProgressStore.getState().reset;
+    await reset();
+    setShowMenu(false);
   };
 
   const handleLogout = () => {
@@ -115,7 +129,7 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
         <Card style={[styles.statCard, styles.statCardOrange]}>
           <Flame size={20} color="#fff" strokeWidth={2} style={styles.statIcon} />
           <Type scale="h2" style={styles.statValue}>
-            23
+            {currentStreak}
           </Type>
           <Type scale="caption" style={styles.statLabel} numberOfLines={2}>
             Day{' '}Streak
@@ -124,7 +138,7 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
         <Card style={[styles.statCard, styles.statCardBlue]}>
           <PieChart size={20} color="#fff" strokeWidth={2} style={styles.statIcon} />
           <Type scale="h2" style={styles.statValue}>
-            76%
+            {completionRate}%
           </Type>
           <Type scale="caption" style={styles.statLabel} numberOfLines={2}>
             Completion{' '}Rate
@@ -138,10 +152,13 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
       </Type>
 
       {enrolledPrograms.map((program) => {
-        const progress = myProgress[program.id as keyof typeof myProgress];
+        const progress = programProgress[program.id];
+        if (!progress) return null;
+        
         const progressPercent = Math.round(
           (progress.completedDays / progress.totalDays) * 100
         );
+        const loggedToday = isLoggedToday(program.id);
 
         return (
           <Card key={program.id} style={styles.programCard}>
@@ -188,20 +205,22 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
                 <Button
-                  onPress={() => {
-                    console.log('[Dashboard] Log Activity clicked for program:', program.name);
-                  }}
+                  onPress={() => !loggedToday && setActivityLogProgram(program)}
                   skin="primary"
-                  style={[styles.actionButton, styles.compactButton, { backgroundColor: program.color }]}
+                  style={[
+                    styles.actionButton, 
+                    styles.compactButton, 
+                    { backgroundColor: program.color },
+                    loggedToday && { opacity: 0.6 }
+                  ]}
+                  disabled={loggedToday}
                 >
-                  <Type scale="body" style={{ color: '#fff', fontWeight: '600', textAlign: 'center', width: '100%' }}>
-                    Log Activity
+                  <Type scale="body" style={{ color: '#fff', fontWeight: '600', textAlign: 'center', width: '100%', lineHeight: 20 }}>
+                    {loggedToday ? '✓ Complete' : 'Log Activity'}
                   </Type>
                 </Button>
                 <Button
-                  onPress={() => {
-                    console.log('[Dashboard] View Details clicked for program:', program.name);
-                  }}
+                  onPress={() => handleProgramPress(program.id)}
                   skin="secondary"
                   style={[styles.actionButton, styles.compactButton, { borderColor: program.color }]}
                 >
@@ -223,12 +242,11 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
       </Type>
 
       {availablePrograms.map((program) => (
-        <TouchableOpacity
-          key={program.id}
-          onPress={() => handleProgramPress(program.id)}
-          activeOpacity={0.7}
-        >
-          <Card style={styles.availableProgramCard}>
+        <Card key={program.id} style={styles.availableProgramCard}>
+          <TouchableOpacity
+            onPress={() => handleProgramPress(program.id)}
+            activeOpacity={0.7}
+          >
             <View style={styles.programHeader}>
               <View
                 style={[
@@ -245,15 +263,18 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
                 </Type>
               </View>
               <Button
-                onPress={() => {}}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  setJoinProgramTarget(program);
+                }}
                 skin="primary"
                 style={[styles.joinButton, { backgroundColor: program.color }]}
               >
                 Join
               </Button>
             </View>
-          </Card>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </Card>
       ))}
       </ScrollView>
 
@@ -280,6 +301,11 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
               <Type scale="body" style={styles.menuText}>Compliance & Accessibility</Type>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleReset}>
+              <RotateCcw size={20} color="#FF9800" strokeWidth={2} />
+              <Type scale="body" style={styles.menuText}>Reset Demo Data</Type>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <LogOut size={20} color="#F44336" strokeWidth={2} />
               <Type scale="body" style={styles.menuText}>Logout</Type>
@@ -287,6 +313,24 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Activity Log Modal */}
+      {activityLogProgram && (
+        <ActivityLogModal
+          visible={true}
+          program={activityLogProgram}
+          onClose={() => setActivityLogProgram(null)}
+        />
+      )}
+
+      {/* Join Program Modal */}
+      {joinProgramTarget && (
+        <JoinProgramModal
+          visible={true}
+          program={joinProgramTarget}
+          onClose={() => setJoinProgramTarget(null)}
+        />
+      )}
     </View>
   );
 }

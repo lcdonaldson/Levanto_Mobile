@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Type, Card, Button, spacing } from '../design-system';
 import type { ProgramDetailScreenProps } from '../navigation/types';
 import { mockPrograms } from '../data/mockData';
+import { useProgressStore } from '../store/progressStore';
 import { ProgramIcon } from '../components/ProgramIcon';
-
-// Mock enrolled programs
-const enrolledProgramIds = ['1', '2'];
+import { ActivityLogModal } from '../components/ActivityLogModal';
+import { JoinProgramModal } from '../components/JoinProgramModal';
 
 export function ProgramDetailScreen({ route, navigation }: ProgramDetailScreenProps) {
   const { programId } = route.params;
   const program = mockPrograms.find((p) => p.id === programId);
-  const isEnrolled = enrolledProgramIds.includes(programId);
+  const isEnrolled = useProgressStore((s) => s.isEnrolled(programId));
+  const isLoggedToday = useProgressStore((s) => s.isLoggedToday(programId));
+  
+  const [showActivityLog, setShowActivityLog] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   if (!program) {
     return (
@@ -130,23 +134,33 @@ export function ProgramDetailScreen({ route, navigation }: ProgramDetailScreenPr
       {isEnrolled ? (
         <View style={styles.actionButtons}>
           <Button
-            onPress={() => {}}
+            onPress={() => !isLoggedToday && setShowActivityLog(true)}
             skin="primary"
-            style={[styles.actionButton, styles.compactButton, { backgroundColor: program.color }]}
+            style={[
+              styles.actionButton, 
+              styles.compactButton, 
+              { backgroundColor: program.color },
+              isLoggedToday && { opacity: 0.6 }
+            ]}
+            disabled={isLoggedToday}
           >
-            <Type scale="body" style={{ color: '#fff', fontWeight: '600', textAlign: 'center', width: '100%' }}>
-              Log Activity
+            <Type scale="body" style={{ color: '#fff', fontWeight: '600', textAlign: 'center', width: '100%', lineHeight: 20 }}>
+              {isLoggedToday ? '✓ Complete' : 'Log Activity'}
             </Type>
           </Button>
-          <Button onPress={() => {}} skin="secondary" style={[styles.actionButton, styles.compactButton]}>
+          <Button 
+            onPress={() => navigation.goBack()}
+            skin="secondary" 
+            style={[styles.actionButton, styles.compactButton]}
+          >
             <Type scale="body" style={{ color: '#555', fontWeight: '600', textAlign: 'center', width: '100%' }}>
-              View My Progress
+              Back to Dashboard
             </Type>
           </Button>
         </View>
       ) : (
         <Button
-          onPress={() => {}}
+          onPress={() => setShowJoinModal(true)}
           skin="primary"
           style={[styles.joinButton, styles.compactButton, { backgroundColor: program.color }]}
         >
@@ -154,6 +168,25 @@ export function ProgramDetailScreen({ route, navigation }: ProgramDetailScreenPr
             Join This Program
           </Type>
         </Button>
+      )}
+
+      {/* Activity Log Modal */}
+      {showActivityLog && (
+        <ActivityLogModal
+          visible={true}
+          program={program}
+          onClose={() => setShowActivityLog(false)}
+        />
+      )}
+
+      {/* Join Program Modal */}
+      {showJoinModal && (
+        <JoinProgramModal
+          visible={true}
+          program={program}
+          onClose={() => setShowJoinModal(false)}
+          onSuccess={() => navigation.goBack()}
+        />
       )}
     </ScrollView>
   );

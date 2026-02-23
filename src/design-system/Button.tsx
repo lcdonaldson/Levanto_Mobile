@@ -55,15 +55,9 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={() => {
-        console.log('[Button] Pressed!', { customBgColor, skinBg: skin.bg });
-        onPress?.();
-      }}
-      onPressIn={() => console.log('[Button] Press IN')}
-      onPressOut={() => console.log('[Button] Press OUT')}
+      onPress={onPress}
       android_ripple={{ color: skin.pressed, borderless: false }}
       style={({ pressed }) => {
-        console.log('[Button] Style render, pressed:', pressed);
         const shouldShowBorder = !customBgColor && skinProp === 'secondary';
         return [
           styles.btn,

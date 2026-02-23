@@ -180,7 +180,7 @@ export function EmployerDashboard() {
 
       {/* Bottom Disclaimer */}
       <Card style={styles.disclaimerCard}>
-        <Type scale="caption" muted style={styles.disclaimer}>
+        <Type scale="caption" style={styles.disclaimer}>
           * Projections based on industry benchmarks and historical data from similar
           organizations. Actual results may vary based on program participation and
           engagement levels.
@@ -348,9 +348,10 @@ const styles = StyleSheet.create({
   disclaimerCard: {
     marginTop: spacing.xl,
     marginBottom: spacing.xl,
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#9C27B0',
   },
   disclaimer: {
     fontStyle: 'italic',
+    color: '#fff',
   },
 });
