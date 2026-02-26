@@ -14,6 +14,10 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>({
+    email: false,
+    password: false,
+  });
 
   const emailError = useMemo(() => {
     if (!email) return 'Email is required';
@@ -28,6 +32,7 @@ export function LoginScreen() {
 
   async function onSubmit() {
     setError(null);
+    setTouched({ email: true, password: true });
     if (emailError || passwordError) return;
     setSubmitting(true);
     // Fake auth: any email + password 'admin' succeeds
@@ -52,7 +57,7 @@ export function LoginScreen() {
         Empowering you to live well
       </Type>
       <Type scale="label" muted style={{ marginTop: spacing.lg }}>
-        Employer Portal
+        Wellness Portal
       </Type>
 
       <View style={styles.form}>
@@ -60,17 +65,19 @@ export function LoginScreen() {
           label="Email"
           value={email}
           onChangeText={setEmail}
+          onBlur={() => setTouched((t) => ({ ...t, email: true }))}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
-          error={email ? (isValidEmail(email) ? undefined : 'Enter a valid email') : undefined}
+          error={touched.email ? emailError : undefined}
         />
         <Field
           label="Password"
           value={password}
           onChangeText={setPassword}
+          onBlur={() => setTouched((t) => ({ ...t, password: true }))}
           secureTextEntry
-          error={!password ? 'Password is required' : undefined}
+          error={touched.password ? passwordError : undefined}
           style={{ marginTop: spacing.md }}
         />
         {error && (

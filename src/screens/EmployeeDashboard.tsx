@@ -48,7 +48,7 @@ export function EmployeeDashboard({ navigation }: DashboardScreenProps) {
     setShowMenu(false);
     const url = Platform.OS === 'web' 
       ? window.location.origin 
-      : 'http://localhost:8082';
+      : 'http://localhost:8081';
     Linking.openURL(url);
   };
 
